@@ -3,7 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-import 'package:zego_uikit/zego_uikit.dart'; // ZEGOCLOUD SDK
+import 'package:zego_uikit/zego_uikit.dart';
+import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart'; // ZEGOCLOUD SDK
 
 class Homescreen2 extends StatefulWidget {
   const Homescreen2({super.key});
@@ -18,8 +19,8 @@ class _Homescreen2State extends State<Homescreen2> {
   final User _user = FirebaseAuth.instance.currentUser!;
   bool _isEmojiVisible = false;
 
-  final String zegoAppId = "your_zegocloud_app_id"; // Replace with your actual ZEGOCLOUD App ID
-  final String zegoAppSign = "your_zegocloud_app_sign"; // Replace with your actual ZEGOCLOUD App Sign
+  final String zegoAppId = "1970904421"; // Replace with your ZEGOCLOUD App ID
+  final String zegoAppSign = "045ed6c2a08a053af5a8501f23fa902b2a098d764fa6d8ff127b648f134d573e"; // Replace with your ZEGOCLOUD App Sign
 
   @override
   void initState() {
@@ -27,10 +28,12 @@ class _Homescreen2State extends State<Homescreen2> {
     _initializeZEGOCLOUD();
   }
 
-  // Initialize ZEGOCLOUD
+  // Initialize ZEGOCLOUD without login call
   Future<void> _initializeZEGOCLOUD() async {
-    await ZegoUIKit().login(_user.uid, _user.displayName ?? "User");
-    await ZegoUIKit().init(appID: int.parse(zegoAppId), appSign: zegoAppSign);
+    await ZegoUIKit().init(
+      appID: int.parse(zegoAppId),
+      appSign: zegoAppSign,
+    );
   }
 
   // Method to send a message to Firestore
@@ -51,21 +54,25 @@ class _Homescreen2State extends State<Homescreen2> {
     return _firestore.collection('chats').orderBy('time').snapshots();
   }
 
-  // Audio call initiation
-  void _makeAudioCall() async {
-    ZegoUIKit().startVoiceCall(channelID: 'audioChannel');
-    print("Audio call started.");
-  }
-
-  // Video call initiation
-  void _makeVideoCall() async {
-    ZegoUIKit().startVideoCall(channelID: 'videoChannel');
-    print("Video call started.");
+  // Navigate to Call Page
+  void _startCall({required bool isVideoCall}) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CallPage(
+          callID: 'call_id_${_user.uid}',
+          isVideoCall: isVideoCall,
+          zegoAppId: int.parse(zegoAppId),
+          zegoAppSign: zegoAppSign,
+          userID: _user.uid,
+          userName: _user.displayName ?? "User",
+        ),
+      ),
+    );
   }
 
   @override
   void dispose() {
-    ZegoUIKit().logout();
+    ZegoUIKit().uninit();
     _messageController.dispose();
     super.dispose();
   }
@@ -77,11 +84,11 @@ class _Homescreen2State extends State<Homescreen2> {
         title: const Text("Chat"),
         actions: [
           IconButton(
-            onPressed: _makeAudioCall,
+            onPressed: () => _startCall(isVideoCall: false),
             icon: const Icon(Icons.call),
           ),
           IconButton(
-            onPressed: _makeVideoCall,
+            onPressed: () => _startCall(isVideoCall: true),
             icon: const Icon(Icons.video_call),
           ),
         ],
@@ -186,6 +193,39 @@ class _Homescreen2State extends State<Homescreen2> {
           _messageController.text += emoji.emoji;
         },
       ),
+    );
+  }
+}
+
+class CallPage extends StatelessWidget {
+  final String callID;
+  final bool isVideoCall;
+  final int zegoAppId;
+  final String zegoAppSign;
+  final String userID;
+  final String userName;
+
+  const CallPage({
+    Key? key,
+    required this.callID,
+    required this.isVideoCall,
+    required this.zegoAppId,
+    required this.zegoAppSign,
+    required this.userID,
+    required this.userName,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ZegoUIKitPrebuiltCall(
+      appID: zegoAppId,
+      appSign: zegoAppSign,
+      userID: userID,
+      userName: userName,
+      callID: callID,
+      config: isVideoCall
+          ? ZegoUIKitPrebuiltCallConfig.oneOnOneVideoCall()
+          : ZegoUIKitPrebuiltCallConfig.oneOnOneVoiceCall(),
     );
   }
 }
