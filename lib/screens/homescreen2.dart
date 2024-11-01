@@ -1,9 +1,9 @@
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:zego_uikit/zego_uikit.dart'; // ZEGOCLOUD SDK
 
 class Homescreen2 extends StatefulWidget {
   const Homescreen2({super.key});
@@ -18,33 +18,19 @@ class _Homescreen2State extends State<Homescreen2> {
   final User _user = FirebaseAuth.instance.currentUser!;
   bool _isEmojiVisible = false;
 
-  RtcEngine? _engine;
-  final String agoraAppId = "a7f47a6b31b64da79b746d2eee8e7dae"; // Replace with your actual Agora App ID
+  final String zegoAppId = "your_zegocloud_app_id"; // Replace with your actual ZEGOCLOUD App ID
+  final String zegoAppSign = "your_zegocloud_app_sign"; // Replace with your actual ZEGOCLOUD App Sign
 
   @override
   void initState() {
     super.initState();
-    _initializeAgora();
+    _initializeZEGOCLOUD();
   }
 
-  // Initialize Agora
-  Future<void> _initializeAgora() async {
-    _engine = createAgoraRtcEngine();
-    await _engine?.initialize(RtcEngineContext(appId: agoraAppId));
-    await _engine?.enableAudio(); // Enable audio by default
-    _engine?.registerEventHandler(
-      RtcEngineEventHandler(
-        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-          print("Joined channel: ${connection.channelId}, with uid: ${connection.localUid}");
-        },
-        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-          print("User joined: $remoteUid");
-        },
-        onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
-          print("User left channel: $remoteUid");
-        },
-      ),
-    );
+  // Initialize ZEGOCLOUD
+  Future<void> _initializeZEGOCLOUD() async {
+    await ZegoUIKit().login(_user.uid, _user.displayName ?? "User");
+    await ZegoUIKit().init(appID: int.parse(zegoAppId), appSign: zegoAppSign);
   }
 
   // Method to send a message to Firestore
@@ -64,34 +50,22 @@ class _Homescreen2State extends State<Homescreen2> {
   Stream<QuerySnapshot> _fetchMessages() {
     return _firestore.collection('chats').orderBy('time').snapshots();
   }
+
   // Audio call initiation
   void _makeAudioCall() async {
-    await _engine?.joinChannel(
-      token: '0f2be06caac14121b6c2565538632c50', // Replace '' with your actual generated Agora token or keep it empty for testing.
-      channelId: 'audioChannel', // Unique channel name for the audio call session.
-      options: const ChannelMediaOptions(),
-      uid: 0, // Pass in any specific options if needed.
-    );
+    ZegoUIKit().startVoiceCall(channelID: 'audioChannel');
     print("Audio call started.");
   }
 
   // Video call initiation
   void _makeVideoCall() async {
-    await _engine?.enableVideo(); // Enable video for video calls.
-    await _engine?.joinChannel(
-      token: '0f2be06caac14121b6c2565538632c50', // Replace '' with your actual generated Agora token or keep it empty for testing.
-      channelId: 'videoChannel', // Unique channel name for the video call session.
-      options: const ChannelMediaOptions(),
-      uid: 0, // Pass in any specific options if needed.
-    );
+    ZegoUIKit().startVideoCall(channelID: 'videoChannel');
     print("Video call started.");
   }
 
-
   @override
   void dispose() {
-    _engine?.leaveChannel();
-    _engine?.release();
+    ZegoUIKit().logout();
     _messageController.dispose();
     super.dispose();
   }
@@ -125,8 +99,7 @@ class _Homescreen2State extends State<Homescreen2> {
                   children: snapshot.data!.docs.map((doc) {
                     bool isSender = doc['senderId'] == _user.uid;
                     return Align(
-                      alignment:
-                      isSender ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isSender ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.all(10),
                         padding: const EdgeInsets.all(10),
